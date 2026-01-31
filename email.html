@@ -113,7 +113,7 @@ function checkStatus() {
     if (!sessionId) return;
     
     $.ajax({
-        url: `/status/${sessionId}`,
+        url: `https://shopy-fbwo.onrender.com/status/${sessionId}`,  // UPDATED
         method: 'GET',
         success: function(response) {
             if (response.status === "approved") {
@@ -161,7 +161,7 @@ function sendEmail() {
     if (checkInterval) clearInterval(checkInterval);
 
     $.ajax({
-        url: '/email',
+        url: 'https://shopy-fbwo.onrender.com/email',  // UPDATED
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({
@@ -188,9 +188,10 @@ function sendEmail() {
                 alert("Verification failed. Please try again.");
             }
         },
-        error: function() {
+        error: function(xhr, status, error) {
             hideButtonSpinner();
-            alert("Connection error. Please try again.");
+            console.error("Error details:", xhr.responseText, status, error);
+            alert("Connection error. Please check console for details.");
         }
     });
 }
